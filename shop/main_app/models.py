@@ -1,19 +1,21 @@
+import sys
 from PIL import Image
 
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.urls import reverse
+
+from io import BytesIO
 
 User = get_user_model()
 
 
-class MinResolutionErrorException(Exception):
-    pass
-
-
-class MaxResolutionErrorException(Exception):
-    pass
+def get_product_url(obj, view_name):
+    ct_model = obj.__class__._meta.model_name
+    return reverse(view_name, kwargs={'ct_model': ct_model, 'slug': obj.slug})
 
 
 class LatestProductsManager(models.Model):
@@ -71,13 +73,18 @@ class Product(models.Model):
     def save(self, *args, **kwargs):
         image = self.image
         img = Image.open(image)
-        min_height, min_width = self.MIN_RESOLUTION
-        max_height, max_width = self.MIN_RESOLUTION
-        if img.width < min_width or img.height < min_height:
-            raise MinResolutionErrorException('Разрешение изображения меньше минимального !')
-        if img.width > max_width or img.height > max_height:
-            raise MaxResolutionErrorException('Разрешение изображения больше максимального !')
-        return image
+        new_img = img.convert('RGB')
+        w_percent = (self.MAX_RESOLUTION[0] / float(img.size[0]))
+        h_size = int((float(img.size[1]) * float(w_percent)))
+        resized_new_img = new_img.resize((self.MAX_RESOLUTION[0], h_size), Image.ANTIALIAS)
+        file_stream = BytesIO()
+        resized_new_img.save(file_stream, 'JPEG', quality=90)
+        file_stream.seek(0)
+        name = '{}.{}'.format(*self.image.name.split('.'))
+        self.image = InMemoryUploadedFile(file_stream, 'ImageField', name, 'jpeg/image', sys.getsizeof(file_stream), None)
+
+        super().save(*args, **kwargs)
+
 
 class Notebook(Product):
 
@@ -90,6 +97,9 @@ class Notebook(Product):
 
     def __str__(self):
         return "{} : {}".format(self.category.name, self.title)
+
+    def get_absolute_url(self):
+        return get_product_url(self, 'product_detail')
 
 
 class Smartphone(Product):
@@ -106,6 +116,9 @@ class Smartphone(Product):
 
     def __str__(self):
         return "{} : {}".format(self.category.name, self.title)
+
+    def get_absolute_url(self):
+        return get_product_url(self, 'product_detail')
 
 
 class CartProduct(models.Model):

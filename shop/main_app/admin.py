@@ -12,24 +12,11 @@ class NotebookAdminForm(ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['image'].help_text = mark_safe(
-            '<span style="color:red;">Загружайте изображения с минимальным разрешением {}x{}</span>'.format(
-                *Product.MIN_RESOLUTION
+            '<span style="color:red;">При загрузке изображения с разрешением {}x{} оно будет сжато</span>'.format(
+                *Product.MAX_RESOLUTION
             )
         )
 
-    def clean_image(self):
-        image = self.cleaned_data['image']
-        img = Image.open(image)
-        min_height, min_width = Product.MIN_RESOLUTION
-        max_height, max_width = Product.MIN_RESOLUTION
-        if image.size > Product.MAX_IMAGE_SIZE:
-            raise ValidationError('Размер изображения не должен превышать 3 мб !')
-        if img.width < min_width or img.height < min_height:
-            raise ValidationError('Разрешение изображения меньше минимального !')
-        if img.width > max_width or img.height > max_height:
-            raise ValidationError('Разрешение изображения больше максимального !')
-
-        return image
 
 class NotebookAdmin(admin.ModelAdmin):
 
