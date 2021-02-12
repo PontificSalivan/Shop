@@ -18,9 +18,31 @@ class NotebookAdminForm(ModelForm):
         )
 
 
+class SmartphoneAdminForm(ModelForm):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['image'].help_text = mark_safe(
+            '<span style="color:red;">При загрузке изображения с разрешением {}x{} оно будет сжато</span>'.format(
+                *Product.MAX_RESOLUTION
+            )
+        )
+        instance = kwargs.get('instance')
+        if instance and not instance.sd:
+            self.fields['sd_volume_max'].widget.attrs.update({
+                'readonly': True, 'style': 'background: lightgray;'
+            })
+
+    def clean(self):
+        if not self.cleaned_data['sd']:
+            self.cleaned_data['sd_volume_max'] = None
+        return self.cleaned_data
+
+
 class NotebookAdmin(admin.ModelAdmin):
 
     form = NotebookAdminForm
+    change_form_template = 'admin.html'
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'category':
@@ -29,6 +51,9 @@ class NotebookAdmin(admin.ModelAdmin):
 
 
 class SmartphoneAdmin(admin.ModelAdmin):
+
+    form = SmartphoneAdminForm
+    change_form_template = 'admin.html'
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'category':
